@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Image Gallery</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #fff;
+      padding: 2rem;
+      text-align: center;
+      overflow-x: hidden;
+    }
+    h1 {
+      margin-bottom: 1.5rem;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .controls button {
+      position: relative;
+      padding: 0.6rem 1.4rem;
+      border: none;
+      background: linear-gradient(135deg, rgba(0,255,255,0.3), rgba(0,100,255,0.3));
+      color: white;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.3);
+      overflow: hidden;
+      transition: transform 0.3s ease, background 0.3s ease;
+    }
+    .controls button::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      width: 200%;
+      height: 200%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      transition: transform 0.6s ease-out;
+      pointer-events: none;
+    }
+    .controls button:active::after {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .controls button:hover {
+      background: linear-gradient(135deg, rgba(0,255,255,0.5), rgba(0,100,255,0.5));
+      transform: scale(1.1) rotate(-1deg);
+    }
+    .controls button.active {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    .image-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+      transition: transform 0.5s ease, filter 0.5s ease;
+      cursor: pointer;
+    }
+    .image-card:hover {
+      transform: scale(1.05) rotate(2deg);
+      filter: brightness(1.2) saturate(1.2);
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+    }
+    .image-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: all 0.6s ease;
+      filter: blur(2px);
+    }
+    .image-card:hover img {
+      filter: blur(0px);
+      transform: scale(1.1) rotate(-1deg);
+    }
+
+    .lightbox {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.4s ease;
+    }
+    .lightbox.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .lightbox img {
+      max-width: 90%;
+      max-height: 70vh;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #0ff;
+      animation: zoomIn 0.5s ease;
+      transition: transform 0.4s ease, filter 0.4s ease;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 2rem;
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .lightbox-close:hover {
+      transform: scale(1.2);
+    }
+    .lightbox-controls, .editor-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    .lightbox-controls button, .editor-controls button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      background: rgba(0, 255, 255, 0.2);
+      color: white;
+      border-radius: 10px;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      font-weight: bold;
+      transition: transform 0.3s ease;
+    }
+    .lightbox-controls button:hover, .editor-controls button:hover {
+      transform: scale(1.1);
+    }
+    .editor-wrapper {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 1rem;
+      gap: 0.5rem;
+      animation: fadeIn 0.4s ease;
+    }
+    .editor-wrapper.active {
+      display: flex;
+    }
+    #cursor-trail {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      background: rgba(0, 255, 255, 0.3);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.05s linear;
+    }
+    @media (hover: none) {
+      #cursor-trail {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+    <div class="controls">
+    <button onclick="filterCategory('all')">All</button>
+    <button onclick="filterCategory('nature')">Nature</button>
+    <button onclick="filterCategory('city')">City</button>
+    <button onclick="filterCategory('animals')">Animals</button>
+  </div>
+
+  <div class="gallery" id="gallery">
+    <div class="image-card" data-category="nature"><img src="https://picsum.photos/id/1015/400/300" alt="img1"></div>
+    <div class="image-card" data-category="city"><img src="https://picsum.photos/id/1016/400/300" alt="img2"></div>
+    <div class="image-card" data-category="animals"><img src="https://picsum.photos/id/1025/400/300" alt="img3"></div>
+    <div class="image-card" data-category="nature"><img src="https://picsum.photos/id/1035/400/300" alt="img4"></div>
+    <div class="image-card" data-category="city"><img src="https://picsum.photos/id/1045/400/300" alt="img5"></div>
+    <div class="image-card" data-category="animals"><img src="https://picsum.photos/id/1055/400/300" alt="img6"></div>
+  </div>
+
+  <div class="lightbox" id="lightbox">
+    <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+    <img id="lightbox-img" src="" alt="lightbox image" />
+    <div class="lightbox-controls">
+      <button onclick="prevImage()">⟵ Prev</button>
+      <button onclick="nextImage()">Next ⟶</button>
+      <button onclick="toggleEditor()">🛠 Edit</button>
+    </div>
+    <div class="editor-wrapper" id="editor-wrapper">
+      <div class="editor-controls">
+        <button onclick="applyFilter('grayscale')">Grayscale</button>
+        <button onclick="applyFilter('invert')">Invert</button>
+        <button onclick="mirrorImage()">Mirror</button>
+        <button onclick="rotateImage()">Rotate</button>
+        <button onclick="resetEdits()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cursor-trail"></div>
+
+  <script>
+    const galleryCards = document.querySelectorAll('.image-card');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const editorWrapper = document.getElementById('editor-wrapper');
+    const cursorTrail = document.getElementById('cursor-trail');
+    let currentIndex = 0;
+    let currentRotation = 0;
+    let mirrored = false;
+
+    galleryCards.forEach((card, index) => {
+      const img = card.querySelector('img');
+      img.addEventListener('click', () => {
+        lightbox.classList.add('active');
+        lightboxImg.src = img.src;
+        currentIndex = index;
+        resetEdits();
+        editorWrapper.classList.remove('active');
+      });
+    });
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+    }
+
+    function nextImage() {
+      currentIndex = (currentIndex + 1) % galleryCards.length;
+      lightboxImg.src = galleryCards[currentIndex].querySelector('img').src;
+      resetEdits();
+      editorWrapper.classList.remove('active');
+    }
+
+    function prevImage() {
+      currentIndex = (currentIndex - 1 + galleryCards.length) % galleryCards.length;
+      lightboxImg.src = galleryCards[currentIndex].querySelector('img').src;
+      resetEdits();
+      editorWrapper.classList.remove('active');
+    }
+
+    function toggleEditor() {
+      editorWrapper.classList.toggle('active');
+    }
+
+    function filterCategory(category) {
+      document.querySelectorAll('.image-card').forEach(card => {
+        card.style.display = category === 'all' || card.dataset.category === category ? 'block' : 'none';
+      });
+    }
+
+    function applyFilter(type) {
+      lightboxImg.style.filter = type === 'none' ? 'none' : `${type}(100%)`;
+    }
+
+    function mirrorImage() {
+      mirrored = !mirrored;
+      lightboxImg.style.transform = `scaleX(${mirrored ? -1 : 1}) rotate(${currentRotation}deg)`;
+    }
+
+    function rotateImage() {
+      currentRotation = (currentRotation + 90) % 360;
+      lightboxImg.style.transform = `scaleX(${mirrored ? -1 : 1}) rotate(${currentRotation}deg)`;
+    }
+
+    function resetEdits() {
+      currentRotation = 0;
+      mirrored = false;
+      lightboxImg.style.transform = 'scaleX(1) rotate(0deg)';
+      lightboxImg.style.filter = 'none';
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox.classList.contains('active')) return;
+      if (e.key === 'ArrowRight') nextImage();
+      if (e.key === 'ArrowLeft') prevImage();
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      cursorTrail.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    });
+  </script>
+</body>
+</html>
